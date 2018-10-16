@@ -21,6 +21,8 @@ type Config struct {
 type Client struct {
 	*ssh.Client
 	conn net.Conn
+	addr string
+	user string
 }
 
 func (c *Client) SetDeadline(t time.Time) error {
@@ -35,7 +37,7 @@ func (c *Client) SetWriteDeadline(t time.Time) error {
 	return c.conn.SetWriteDeadline(t)
 }
 
-func dial(ctx context.Context, address string, c *Config) (client *Client, err error) {
+func Dial(ctx context.Context, address string, c *Config) (client *Client, err error) {
 	var auth []ssh.AuthMethod
 
 	if c.KeyFunc != nil {
@@ -106,67 +108,38 @@ func dial(ctx context.Context, address string, c *Config) (client *Client, err e
 	client = &Client{
 		Client: ssh.NewClient(sshConn, chans, reqs),
 		conn:   conn,
+		addr:   address,
+		user:   c.Username,
 	}
 
 	return client, nil
 }
 
-// Connection pool wrapper below
-
-type poolItem struct {
-	client *Client
-	conf   *Config
-	addr   string
-}
-
 func poolKey(username, addr string) string { return username + "@" + addr }
 
-func (p *poolItem) Key() interface{} { return poolKey(p.conf.Username, p.addr) }
+func (c *Client) Key() interface{} { return poolKey(c.user, c.addr) }
 
-func (p *poolItem) Finalize() {
-	p.client.Close()
-}
-
-type newPoolItemArg struct {
-	ctx     context.Context
-	address string
-	conf    *Config
-}
-
-func newPoolItem(arg interface{}) (pool.Item, error) {
-	a := arg.(*newPoolItemArg)
-
-	client, err := dial(a.ctx, a.address, a.conf)
-	if err != nil {
-		return nil, err
-	}
-
-	return &poolItem{
-		client: client,
-		conf:   a.conf,
-		addr:   a.address,
-	}, nil
-}
+func (c *Client) Finalize() { c.Client.Close() }
 
 type Pool pool.Pool
 
 func NewConnPool(maxconn int) *Pool {
 	return (*Pool)(&pool.Pool{
 		MaxLength: maxconn,
-		New:       newPoolItem,
 	})
 }
 
-func (p *Pool) Dial(ctx context.Context, address string, c *Config) (client *Client, err error) {
-	v, err := (*pool.Pool)(p).Get(poolKey(c.Username, address), &newPoolItemArg{
-		ctx:     ctx,
-		address: address,
-		conf:    c,
-	})
+func (p *Pool) Get(address, username string) *Client {
+	v, _ := (*pool.Pool)(p).Get(poolKey(username, address), nil)
 
-	if err != nil {
-		return nil, err
+	if v != nil {
+		return v.(*Client)
 	}
 
-	return v.(*poolItem).client, nil
+	return nil
 }
+
+func (p *Pool) Put(c *Client) { (*pool.Pool)(p).Put(c) }
+
+// Compile time check
+var _ pool.Finalizer = &Client{}

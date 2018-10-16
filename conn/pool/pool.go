@@ -52,16 +52,16 @@ func (p *Pool) get(key interface{}) Item {
 }
 
 func (p *Pool) Get(key, arg interface{}) (Item, error) {
-	if i := p.get(key); i != nil {
-		return i, nil
+	if itm := p.get(key); itm != nil {
+		return itm, nil
 	}
 
-	if p.New == nil {
-		return nil, nil
+	if p.New != nil {
+		// Create new
+		return p.New(arg)
 	}
 
-	// Create new item
-	return p.New(arg)
+	return nil, nil
 }
 
 func (p *Pool) Put(item Item) {
