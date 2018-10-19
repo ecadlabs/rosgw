@@ -170,7 +170,7 @@ func TestInterfaces(t *testing.T) {
 		t2 = ex[i].LastLinkDownTime
 
 		if t1 == nil && t2 != nil || t1 != nil && t2 == nil || t1 != nil && t2 != nil && !t1.Equal(*t2) {
-			t.Fatalf("got %v, want %v\n", *t1, *t2)
+			t.Fatalf("got %v, want %v\n", t1, t2)
 		}
 	}
 }
