@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// Command: interface monitor-traffic INTERFACE
 type TrafficMonitorResponse struct {
 	Name                  string `json:"name"`
 	RxPacketsPerSecond    uint64 `json:"rx_packets_per_second"`
@@ -29,13 +30,13 @@ type TrafficMonitor struct {
 }
 
 func (t *TrafficMonitor) ParseResponse(r io.Reader) error {
-	s := bufio.NewScanner(r)
-
 	var hasData bool
 	res := new(TrafficMonitorResponse)
+
+	s := bufio.NewScanner(r)
 	for s.Scan() {
 		line := s.Text()
-		if line == "" {
+		if line == "" && hasData {
 			if t.NonBlock {
 				select {
 				case t.C <- res:
@@ -101,3 +102,5 @@ func (t *TrafficMonitor) ParseResponse(r io.Reader) error {
 
 	return s.Err()
 }
+
+var _ ResponseParser = &TrafficMonitor{}
