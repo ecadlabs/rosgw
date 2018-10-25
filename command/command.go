@@ -76,9 +76,11 @@ func (s *sshCommandResponse) Close() (err error) {
 	rn := s.Reader.(*readNotifier)
 	defer rn.close(io.EOF)
 
-	if err := s.session.Wait(); err != nil {
-		return err
-	}
+	/*
+		if err := s.session.Wait(); err != nil {
+			return err
+		}
+	*/
 
 	if err := s.session.Close(); err != nil && err != io.EOF {
 		return err

@@ -38,7 +38,8 @@ func main() {
 	m.Use((&middleware.Logging{}).Handler)
 	m.Use((&middleware.Recover{}).Handler)
 
-	m.Methods("GET").Path("/devices/{id}/interfaces").HandlerFunc(handler.GetInterfaces)
+	m.Methods("GET").Path("/devices/{id}/interfaces/").HandlerFunc(handler.GetInterfaces)
+	m.Path("/devices/{id}/monitor_traffic/{iface}").HandlerFunc(handler.MonitorTraffic)
 
 	m.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		utils.JSONErrorResponse(w, errors.ErrResourceNotFound)

@@ -10,6 +10,7 @@ import (
 	"github.com/ecadlabs/rosgw/response"
 	"github.com/ecadlabs/rosgw/utils"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 )
 
@@ -63,4 +64,65 @@ func (r *Routeros) GetInterfaces(w http.ResponseWriter, req *http.Request) {
 	}
 
 	utils.JSONResponse(w, http.StatusOK, ifaces)
+}
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+}
+
+func (r *Routeros) MonitorTraffic(w http.ResponseWriter, req *http.Request) {
+	id := mux.Vars(req)["id"]
+	dev, err := r.db.GetDevice(req.Context(), id)
+	if err != nil {
+		utils.JSONErrorResponse(w, err)
+		return
+	}
+
+	iface := mux.Vars(req)["iface"]
+
+	res, err := r.cmd.Run(req.Context(), dev.Address(), dev.Config(), "interface monitor-traffic "+iface)
+	if err != nil {
+		r.logger.Error(err)
+		utils.JSONErrorResponse(w, err)
+		return
+	}
+
+	defer func() {
+		res.Close()
+		r.logger.Info("Session closed")
+	}()
+
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		r.logger.Error(err)
+		return
+	}
+
+	defer conn.Close()
+
+	ch := make(chan *response.TrafficMonitorResponse, 100)
+
+	mon := response.TrafficMonitor{
+		C:        ch,
+		NonBlock: true,
+	}
+
+	// Run parser
+	go func() {
+		if err := mon.ParseResponse(res); err != nil {
+			r.logger.Error(err)
+		}
+
+		close(ch)
+	}()
+
+	// WS handler loop
+	for pkt := range ch {
+		if err := conn.WriteJSON(pkt); err != nil {
+			r.logger.Error(err)
+			return
+		}
+	}
 }
