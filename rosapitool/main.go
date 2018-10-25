@@ -8,7 +8,6 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/ecadlabs/rosgw/utils"
 	"gopkg.in/routeros.v2/proto"
 )
 
@@ -48,14 +47,14 @@ func main() {
 		os.Exit(0)
 	}
 
-	opts := utils.DialOptions{
+	opts := DialOptions{
 		URL:       args[0],
 		Username:  *username,
 		Password:  *password,
 		TLSConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 
-	client, err := utils.Dial(&opts)
+	client, err := Dial(&opts)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

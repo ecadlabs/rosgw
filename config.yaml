@@ -1,0 +1,9 @@
+devices:
+  my_router:
+    host: 192.168.88.1
+    username: admin
+
+common:
+  identity_file: /Users/asphyx/.ssh/id_rsa
+
+address: :8080
